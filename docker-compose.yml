@@ -1,0 +1,14 @@
+services:
+  foton:
+    build: .
+    container_name: foton-platform
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - foton_data:/app/data
+
+volumes:
+  foton_data:

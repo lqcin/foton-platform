@@ -1,0 +1,40 @@
+# Secrets / local config
+.env
+.env.*
+!.env.example
+
+# Runtime data
+data/*
+!data/.gitkeep
+foton.db
+storage/
+*.sqlite
+*.sqlite3
+
+# Generated media / reports / CAD
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.pdf
+*.dxf
+*.dwg
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

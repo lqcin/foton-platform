@@ -1,0 +1,4 @@
+FOTON Platform
+GitHub-ready consolidated package
+Build: 2026-09-18
+Runtime target: Docker / Python 3.12
