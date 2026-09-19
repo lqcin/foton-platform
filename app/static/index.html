@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FOTON Altyapı Platformu</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="side" id="sidebar">
+    <div class="brand"><span class="photon"></span><div>FOTON<small>ALTYAPI PLATFORMU</small></div></div>
+    <button onclick="showDashboard()">Genel Bakış</button>
+    <button onclick="showProjectList()">Projeler</button>
+    <button id="adminBtn" class="hidden" onclick="showAdmin()">Yönetici</button>
+    <button id="fieldBtn" class="hidden" onclick="showField()">Saha</button>
+    <div class="grow"></div>
+    <button onclick="logout()">Çıkış</button>
+  </aside>
+
+  <main>
+    <section id="loginView" class="login-view">
+      <div class="login-card">
+        <div class="brand large"><span class="photon"></span><div>FOTON<small>ALTYAPI PLATFORMU</small></div></div>
+        <h1>Proje portalı</h1>
+        <p>Koordinattan haritaya, sahadan videoya, rapordan CAD revizyonuna tek sistem.</p>
+        <input id="email" placeholder="E-posta">
+        <input id="password" type="password" placeholder="Şifre">
+        <button class="primary" onclick="login()">Giriş Yap</button>
+      </div>
+    </section>
+
+    <section id="appView" class="hidden">
+      <header class="top">
+        <div><div class="eyebrow">FOTON</div><h2 id="pageTitle">Genel Bakış</h2></div>
+        <div id="userBadge" class="badge"></div>
+      </header>
+
+      <section id="dashboardView">
+        <div class="stats" id="globalStats"></div>
+        <div class="panel">
+          <div class="panel-title">Projeler</div>
+          <div class="projects" id="projectCards"></div>
+        </div>
+      </section>
+
+      <section id="projectView" class="hidden">
+        <div class="panel">
+          <div class="toolbar">
+            <div><div class="eyebrow">PROJE</div><h3 id="projectTitle">-</h3></div>
+            <div class="actions">
+              <button onclick="loadRevisions()">Revizyonlar</button>
+              <button id="manualGenerate" class="hidden" onclick="generateRevision()">Rapor + CAD Güncelle</button>
+              <button onclick="showDashboard()">Geri</button>
+            </div>
+          </div>
+          <div class="project-stats" id="projectStats"></div>
+          <div class="map-wrap"><svg id="mapSvg" viewBox="0 0 1200 680"></svg></div>
+          <div class="legend">
+            <span><i class="dot ok"></i> Uygun</span>
+            <span><i class="dot defect"></i> Kusurlu</span>
+            <span><i class="dot recheck"></i> Tekrar kontrol</span>
+            <span><i class="dot noimage"></i> Görüntü alınamadı</span>
+            <span><i class="dot pending"></i> Görüntülenmedi</span>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">Hatlar</div>
+          <div class="table-scroll">
+            <table><thead><tr><th>Hat</th><th>Tip</th><th>Çap</th><th>Uzunluk</th><th>Son durum</th><th>Son kontrol</th><th></th></tr></thead><tbody id="lineTable"></tbody></table>
+          </div>
+        </div>
+      </section>
+
+      <section id="adminView" class="hidden">
+        <div class="grid2">
+          <div class="panel">
+            <div class="panel-title">Yeni proje</div>
+            <select id="customerSelect"></select>
+            <input id="newProjectName" placeholder="Proje adı">
+            <input id="newProjectCode" placeholder="Proje kodu">
+            <input id="newProjectSite" placeholder="Şantiye">
+            <input id="newProjectParcel" placeholder="Parsel">
+            <input id="newProjectCrs" value="LOCAL" placeholder="Koordinat sistemi">
+            <button class="primary" onclick="createProject()">Proje Oluştur</button>
+            <div id="createMsg" class="muted"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">Koordinat CSV yükle</div>
+            <select id="importProject"></select>
+            <input id="csvFile" type="file" accept=".csv">
+            <label class="check"><input id="replaceRows" type="checkbox"> Mevcut geometriyi silip yeniden yükle</label>
+            <button class="primary" onclick="uploadCsv()">Koordinatları Yükle</button>
+            <pre id="uploadMsg" class="muted"></pre>
+          </div>
+        </div>
+      </section>
+
+      <section id="fieldView" class="hidden">
+        <div class="panel">
+          <div class="panel-title">Saha görüntüleme kaydı</div>
+          <select id="fieldProject" onchange="loadFieldLines()"></select>
+          <select id="fieldLine"></select>
+          <select id="fieldResult" onchange="toggleDefectFields()">
+            <option value="OK">Uygun</option>
+            <option value="DEFECT">Kusurlu</option>
+            <option value="RECHECK">Tekrar kontrol</option>
+            <option value="NO_IMAGE">Görüntü alınamadı</option>
+          </select>
+          <textarea id="fieldNotes" rows="3" placeholder="Görüntüleme notu"></textarea>
+          <div id="defectFields" class="hidden">
+            <input id="defectType" placeholder="Kusur tipi (CONTA, CATLAK...)">
+            <input id="defectMeter" type="number" step="0.01" placeholder="Metre">
+            <select id="defectSeverity">
+              <option value="LOW">Düşük</option>
+              <option value="MEDIUM" selected>Orta</option>
+              <option value="HIGH">Yüksek</option>
+            </select>
+            <textarea id="defectDesc" rows="2" placeholder="Kusur açıklaması"></textarea>
+          </div>
+          <button class="primary" onclick="saveInspection()">Görüntülemeyi Kaydet</button>
+          <div id="inspectionMsg" class="muted"></div>
+        </div>
+      </section>
+    </section>
+  </main>
+</div>
+
+<div id="lineModal" class="modal hidden">
+  <div class="modal-card">
+    <div class="toolbar"><h3 id="modalLineTitle">Hat</h3><button onclick="closeLineModal()">Kapat</button></div>
+    <div id="lineHistory"></div>
+  </div>
+</div>
+
+<div id="videoModal" class="modal hidden">
+  <div class="modal-card">
+    <div class="toolbar"><h3>Video yükle</h3><button onclick="closeVideoModal()">Kapat</button></div>
+    <input id="videoInspectionId" type="hidden">
+    <input id="videoFile" type="file" accept="video/*">
+    <button class="primary" onclick="uploadVideo()">Videoyu Yükle</button>
+    <div id="videoMsg" class="muted"></div>
+  </div>
+</div>
+
+<div id="revisionModal" class="modal hidden">
+  <div class="modal-card wide">
+    <div class="toolbar"><h3>Rapor & CAD Revizyonları</h3><button onclick="closeRevisionModal()">Kapat</button></div>
+    <div id="revisionList"></div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
