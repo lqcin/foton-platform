@@ -3,43 +3,83 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>FOTON Altyapı Platformu</title>
+<meta name="theme-color" content="#061018">
+<title>FOTON Proje Portalı</title>
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 <div class="shell">
   <aside class="side" id="sidebar">
-    <div class="brand"><span class="photon"></span><div>FOTON<small>ALTYAPI PLATFORMU</small></div></div>
-    <button onclick="showDashboard()">Genel Bakış</button>
-    <button onclick="showProjectList()">Projeler</button>
-    <button id="adminBtn" class="hidden" onclick="showAdmin()">Yönetici</button>
-    <button id="fieldBtn" class="hidden" onclick="showField()">Saha</button>
+    <div class="brand"><span class="photon"></span><div>FOTON<small>PROJE PORTALI</small></div></div>
+    <div class="nav-label">ÇALIŞMA ALANI</div>
+    <button class="nav-btn active" data-view="dashboard" onclick="showDashboard(this)">⌂ <span>Genel Bakış</span></button>
+    <button class="nav-btn" data-view="dashboard" onclick="showProjectList(this)">▱ <span>Projeler</span></button>
+    <button class="nav-btn hidden" id="adminBtn" data-view="admin" onclick="showAdmin(this)">⚙ <span>Yönetim</span></button>
+    <button class="nav-btn hidden" id="fieldBtn" data-view="field" onclick="showField(this)">◉ <span>Saha</span></button>
     <div class="grow"></div>
-    <button onclick="logout()">Çıkış</button>
+    <button class="profile-btn" onclick="openProfile()">
+      <span class="avatar" id="sideAvatar">F</span>
+      <span><b id="sideName">Kullanıcı</b><small id="sideRole">-</small></span>
+    </button>
+    <button class="nav-btn danger" onclick="logout()">↪ <span>Çıkış</span></button>
   </aside>
 
   <main>
     <section id="loginView" class="login-view">
-      <div class="login-card">
-        <div class="brand large"><span class="photon"></span><div>FOTON<small>ALTYAPI PLATFORMU</small></div></div>
-        <h1>Proje portalı</h1>
-        <p>Koordinattan haritaya, sahadan videoya, rapordan CAD revizyonuna tek sistem.</p>
-        <input id="email" placeholder="E-posta">
-        <input id="password" type="password" placeholder="Şifre">
-        <button class="primary" onclick="login()">Giriş Yap</button>
+      <div class="login-showcase">
+        <div class="brand large"><span class="photon"></span><div>FOTON<small>ALTYAPI TEKNOLOJİLERİ</small></div></div>
+        <div class="login-copy">
+          <div class="eyebrow">MÜŞTERİ PROJE PORTALI</div>
+          <h1>Projenizi<br><span>canlı izleyin.</span></h1>
+          <p>Görüntülenen hatlar, açık kusurlar, videolar, PDF raporları ve CAD revizyonları tek güvenli hesapta.</p>
+          <div class="login-benefits">
+            <div><b>Canlı Harita</b><small>Hat durumunu tek bakışta görün</small></div>
+            <div><b>Revizyon Geçmişi</b><small>Eski rapor ve CAD kayıtları korunur</small></div>
+            <div><b>Yetkili Erişim</b><small>Her kullanıcı yalnızca kendi projesini görür</small></div>
+          </div>
+        </div>
+      </div>
+      <div class="login-panel">
+        <div id="normalLogin">
+          <div class="eyebrow">GÜVENLİ GİRİŞ</div>
+          <h2>FOTON'a giriş yapın</h2>
+          <p class="muted">Size tanımlanan e-posta ve şifreyi kullanın.</p>
+          <label>E-posta<input id="email" autocomplete="username" placeholder="ornek@firma.com"></label>
+          <label>Şifre<div class="password-wrap"><input id="password" type="password" autocomplete="current-password" placeholder="••••••••••"><button type="button" onclick="togglePassword('password',this)">Göster</button></div></label>
+          <button class="primary full" onclick="login()">Giriş Yap</button>
+          <button class="link-btn" onclick="forgotInfo()">Şifremi unuttum</button>
+          <div id="loginMsg" class="form-msg"></div>
+        </div>
+        <div id="resetLogin" class="hidden">
+          <div class="eyebrow">ŞİFRE SIFIRLAMA</div>
+          <h2>Yeni şifrenizi belirleyin</h2>
+          <p class="muted">Bağlantı tek kullanımlıktır ve kısa süre sonra geçersiz olur.</p>
+          <label>Yeni şifre<div class="password-wrap"><input id="resetPassword" type="password"><button type="button" onclick="togglePassword('resetPassword',this)">Göster</button></div></label>
+          <label>Yeni şifre tekrar<input id="resetPassword2" type="password"></label>
+          <div class="password-rules">En az 10 karakter, büyük harf, küçük harf ve rakam.</div>
+          <button class="primary full" onclick="completeReset()">Şifreyi Güncelle</button>
+          <div id="resetMsg" class="form-msg"></div>
+        </div>
       </div>
     </section>
 
     <section id="appView" class="hidden">
       <header class="top">
-        <div><div class="eyebrow">FOTON</div><h2 id="pageTitle">Genel Bakış</h2></div>
-        <div id="userBadge" class="badge"></div>
+        <div><div class="eyebrow" id="pageEyebrow">FOTON PORTAL</div><h2 id="pageTitle">Genel Bakış</h2></div>
+        <div class="top-actions">
+          <div class="secure-pill">● Güvenli oturum</div>
+          <button class="top-profile" onclick="openProfile()"><span id="topInitial">F</span><b id="topName">Kullanıcı</b></button>
+        </div>
       </header>
 
       <section id="dashboardView">
+        <div class="welcome-card">
+          <div><div class="eyebrow">HOŞ GELDİNİZ</div><h3 id="welcomeName">Proje durumunuz güncel.</h3><p id="welcomeText">Yetkili olduğunuz projelerin son durumunu aşağıdan takip edebilirsiniz.</p></div>
+          <div class="welcome-orb"><span></span></div>
+        </div>
         <div class="stats" id="globalStats"></div>
         <div class="panel">
-          <div class="panel-title">Projeler</div>
+          <div class="panel-head"><div><div class="panel-title">Projeleriniz</div><div class="muted">Detay için proje kartına tıklayın.</div></div><span id="projectCountBadge" class="badge"></span></div>
           <div class="projects" id="projectCards"></div>
         </div>
       </section>
@@ -47,15 +87,18 @@
       <section id="projectView" class="hidden">
         <div class="panel">
           <div class="toolbar">
-            <div><div class="eyebrow">PROJE</div><h3 id="projectTitle">-</h3></div>
+            <div><div class="eyebrow">PROJE DETAYI</div><h3 id="projectTitle">-</h3><div id="projectMeta" class="muted"></div></div>
             <div class="actions">
-              <button onclick="loadRevisions()">Revizyonlar</button>
-              <button id="manualGenerate" class="hidden" onclick="generateRevision()">Rapor + CAD Güncelle</button>
+              <button onclick="loadRevisions()">Rapor & CAD</button>
+              <button id="manualGenerate" class="hidden" onclick="generateRevision()">Revizyon Üret</button>
               <button onclick="showDashboard()">Geri</button>
             </div>
           </div>
           <div class="project-stats" id="projectStats"></div>
-          <div class="map-wrap"><svg id="mapSvg" viewBox="0 0 1200 680"></svg></div>
+          <div class="map-wrap">
+            <div class="map-toolbar"><span>CANLI HAT HARİTASI</span><span class="muted">Hat geçmişini açmak için çizgiye tıklayın.</span></div>
+            <svg id="mapSvg" viewBox="0 0 1200 680"></svg>
+          </div>
           <div class="legend">
             <span><i class="dot ok"></i> Uygun</span>
             <span><i class="dot defect"></i> Kusurlu</span>
@@ -65,7 +108,7 @@
           </div>
         </div>
         <div class="panel">
-          <div class="panel-title">Hatlar</div>
+          <div class="panel-title">Hat Listesi</div>
           <div class="table-scroll">
             <table><thead><tr><th>Hat</th><th>Tip</th><th>Çap</th><th>Uzunluk</th><th>Son durum</th><th>Son kontrol</th><th></th></tr></thead><tbody id="lineTable"></tbody></table>
           </div>
@@ -73,83 +116,134 @@
       </section>
 
       <section id="adminView" class="hidden">
-        <div class="grid2">
-          <div class="panel">
-            <div class="panel-title">Yeni proje</div>
-            <select id="customerSelect"></select>
-            <input id="newProjectName" placeholder="Proje adı">
-            <input id="newProjectCode" placeholder="Proje kodu">
-            <input id="newProjectSite" placeholder="Şantiye">
-            <input id="newProjectParcel" placeholder="Parsel">
-            <input id="newProjectCrs" value="LOCAL" placeholder="Koordinat sistemi">
-            <button class="primary" onclick="createProject()">Proje Oluştur</button>
-            <div id="createMsg" class="muted"></div>
+        <div class="admin-tabs">
+          <button class="active" onclick="adminTab('users',this)">Kullanıcılar</button>
+          <button onclick="adminTab('projects',this)">Proje & Koordinat</button>
+          <button onclick="adminTab('customers',this)">Firmalar</button>
+        </div>
+
+        <div id="adminUsersTab">
+          <div class="grid2">
+            <div class="panel">
+              <div class="panel-title">Yeni kullanıcı</div>
+              <label>Ad Soyad<input id="newUserName" placeholder="Ad Soyad"></label>
+              <label>E-posta<input id="newUserEmail" type="email" placeholder="kullanici@firma.com"></label>
+              <label>Rol<select id="newUserRole" onchange="toggleCustomerUserFields()"><option value="customer">Müşteri</option><option value="field">Saha</option><option value="admin">Yönetici</option></select></label>
+              <label id="newUserCustomerWrap">Firma<select id="newUserCustomer"></select></label>
+              <button class="primary" onclick="createPortalUser()">Kullanıcı Oluştur</button>
+              <div id="newUserMsg" class="form-msg"></div>
+            </div>
+            <div class="panel">
+              <div class="panel-title">Erişim mantığı</div>
+              <div class="security-list">
+                <div><b>İlk giriş</b><span>Geçici şifre verilen kullanıcı kendi şifresini oluşturmak zorunda.</span></div>
+                <div><b>Şifre sıfırlama</b><span>Yönetici tek kullanımlık ve süreli bağlantı üretir.</span></div>
+                <div><b>Hesap kapatma</b><span>Pasifleştirilen kullanıcının açık oturumları anında iptal edilir.</span></div>
+                <div><b>Proje yetkisi</b><span>Müşteri yalnızca kendi firmasına tanımlı projeleri görür.</span></div>
+              </div>
+            </div>
           </div>
           <div class="panel">
-            <div class="panel-title">Koordinat CSV yükle</div>
-            <select id="importProject"></select>
-            <input id="csvFile" type="file" accept=".csv">
-            <label class="check"><input id="replaceRows" type="checkbox"> Mevcut geometriyi silip yeniden yükle</label>
-            <button class="primary" onclick="uploadCsv()">Koordinatları Yükle</button>
-            <pre id="uploadMsg" class="muted"></pre>
+            <div class="panel-head"><div class="panel-title">Portal kullanıcıları</div><button onclick="loadAdminUsers()">Yenile</button></div>
+            <div class="table-scroll"><table><thead><tr><th>Kullanıcı</th><th>Rol</th><th>Firma</th><th>Projeler</th><th>Son giriş</th><th>Durum</th><th></th></tr></thead><tbody id="usersTable"></tbody></table></div>
+          </div>
+        </div>
+
+        <div id="adminProjectsTab" class="hidden">
+          <div class="grid2">
+            <div class="panel">
+              <div class="panel-title">Yeni proje</div>
+              <select id="customerSelect"></select>
+              <input id="newProjectName" placeholder="Proje adı">
+              <input id="newProjectCode" placeholder="Proje kodu">
+              <input id="newProjectSite" placeholder="Şantiye">
+              <input id="newProjectParcel" placeholder="Parsel">
+              <input id="newProjectCrs" value="LOCAL" placeholder="Koordinat sistemi">
+              <button class="primary" onclick="createProject()">Proje Oluştur</button>
+              <div id="createMsg" class="form-msg"></div>
+            </div>
+            <div class="panel">
+              <div class="panel-title">Koordinat CSV yükle</div>
+              <select id="importProject"></select>
+              <input id="csvFile" type="file" accept=".csv">
+              <label class="check"><input id="replaceRows" type="checkbox"> Mevcut geometriyi silip yeniden yükle</label>
+              <button class="primary" onclick="uploadCsv()">Koordinatları Yükle</button>
+              <pre id="uploadMsg" class="muted"></pre>
+            </div>
+          </div>
+        </div>
+
+        <div id="adminCustomersTab" class="hidden">
+          <div class="panel narrow">
+            <div class="panel-title">Yeni firma</div>
+            <label>Firma adı<input id="newCustomerName" placeholder="ABC İnşaat"></label>
+            <label>Firma kodu<input id="newCustomerCode" placeholder="ABC"></label>
+            <button class="primary" onclick="createCustomer()">Firma Oluştur</button>
+            <div id="customerMsg" class="form-msg"></div>
           </div>
         </div>
       </section>
 
       <section id="fieldView" class="hidden">
-        <div class="panel">
-          <div class="panel-title">Saha görüntüleme kaydı</div>
+        <div class="panel field-panel">
+          <div class="eyebrow">FOTON FIELD</div><div class="panel-title">Saha görüntüleme kaydı</div>
+          <p class="muted">Hat seçin, sonucu kaydedin. Her yeni görüntüleme proje tarihçesine ayrı kayıt olarak eklenir.</p>
           <select id="fieldProject" onchange="loadFieldLines()"></select>
           <select id="fieldLine"></select>
-          <select id="fieldResult" onchange="toggleDefectFields()">
-            <option value="OK">Uygun</option>
-            <option value="DEFECT">Kusurlu</option>
-            <option value="RECHECK">Tekrar kontrol</option>
-            <option value="NO_IMAGE">Görüntü alınamadı</option>
-          </select>
+          <select id="fieldResult" onchange="toggleDefectFields()"><option value="OK">Uygun</option><option value="DEFECT">Kusurlu</option><option value="RECHECK">Tekrar kontrol</option><option value="NO_IMAGE">Görüntü alınamadı</option></select>
           <textarea id="fieldNotes" rows="3" placeholder="Görüntüleme notu"></textarea>
-          <div id="defectFields" class="hidden">
-            <input id="defectType" placeholder="Kusur tipi (CONTA, CATLAK...)">
-            <input id="defectMeter" type="number" step="0.01" placeholder="Metre">
-            <select id="defectSeverity">
-              <option value="LOW">Düşük</option>
-              <option value="MEDIUM" selected>Orta</option>
-              <option value="HIGH">Yüksek</option>
-            </select>
-            <textarea id="defectDesc" rows="2" placeholder="Kusur açıklaması"></textarea>
-          </div>
+          <div id="defectFields" class="hidden"><input id="defectType" placeholder="Kusur tipi (CONTA, CATLAK...)"><input id="defectMeter" type="number" step="0.01" placeholder="Metre"><select id="defectSeverity"><option value="LOW">Düşük</option><option value="MEDIUM" selected>Orta</option><option value="HIGH">Yüksek</option></select><textarea id="defectDesc" rows="2" placeholder="Kusur açıklaması"></textarea></div>
           <button class="primary" onclick="saveInspection()">Görüntülemeyi Kaydet</button>
-          <div id="inspectionMsg" class="muted"></div>
+          <div id="inspectionMsg" class="form-msg"></div>
         </div>
       </section>
     </section>
   </main>
 </div>
 
-<div id="lineModal" class="modal hidden">
-  <div class="modal-card">
-    <div class="toolbar"><h3 id="modalLineTitle">Hat</h3><button onclick="closeLineModal()">Kapat</button></div>
-    <div id="lineHistory"></div>
+<div id="profileModal" class="modal hidden">
+  <div class="modal-card profile-card">
+    <div class="toolbar"><div><div class="eyebrow">HESABIM</div><h3>Profil & Güvenlik</h3></div><button onclick="closeProfile()">Kapat</button></div>
+    <div class="profile-summary"><span class="avatar large-avatar" id="profileAvatar">F</span><div><b id="profileName">-</b><span id="profileEmail">-</span><small id="profileRole">-</small></div></div>
+    <div class="divider"></div>
+    <h4>Şifre değiştir</h4>
+    <label>Mevcut şifre<input id="currentPassword" type="password"></label>
+    <label>Yeni şifre<input id="newPassword" type="password"></label>
+    <label>Yeni şifre tekrar<input id="newPassword2" type="password"></label>
+    <div class="password-rules">En az 10 karakter, büyük harf, küçük harf ve rakam.</div>
+    <button class="primary" onclick="changePassword()">Şifreyi Değiştir</button>
+    <div id="profileMsg" class="form-msg"></div>
   </div>
 </div>
 
-<div id="videoModal" class="modal hidden">
-  <div class="modal-card">
-    <div class="toolbar"><h3>Video yükle</h3><button onclick="closeVideoModal()">Kapat</button></div>
-    <input id="videoInspectionId" type="hidden">
-    <input id="videoFile" type="file" accept="video/*">
-    <button class="primary" onclick="uploadVideo()">Videoyu Yükle</button>
-    <div id="videoMsg" class="muted"></div>
+<div id="forcePasswordModal" class="modal hidden locked-modal">
+  <div class="modal-card profile-card">
+    <div class="eyebrow">İLK GİRİŞ GÜVENLİĞİ</div><h3>Kendi şifrenizi oluşturun</h3>
+    <p class="muted">Size verilen geçici şifre yalnızca ilk giriş içindir. Devam etmek için değiştirin.</p>
+    <label>Geçici şifre<input id="forceCurrentPassword" type="password"></label>
+    <label>Yeni şifre<input id="forceNewPassword" type="password"></label>
+    <label>Yeni şifre tekrar<input id="forceNewPassword2" type="password"></label>
+    <div class="password-rules">En az 10 karakter, büyük harf, küçük harf ve rakam.</div>
+    <button class="primary full" onclick="forceChangePassword()">Yeni Şifreyi Kaydet</button>
+    <div id="forcePasswordMsg" class="form-msg"></div>
   </div>
 </div>
 
-<div id="revisionModal" class="modal hidden">
-  <div class="modal-card wide">
-    <div class="toolbar"><h3>Rapor & CAD Revizyonları</h3><button onclick="closeRevisionModal()">Kapat</button></div>
-    <div id="revisionList"></div>
+<div id="credentialModal" class="modal hidden">
+  <div class="modal-card profile-card">
+    <div class="toolbar"><h3 id="credentialTitle">Kullanıcı oluşturuldu</h3><button onclick="closeCredentialModal()">Kapat</button></div>
+    <p class="muted">Bu bilgiyi güvenli şekilde kullanıcıya iletin. Geçici şifre tekrar gösterilmez.</p>
+    <div class="credential-box"><small>E-posta</small><b id="credentialEmail">-</b></div>
+    <div class="credential-box"><small>Geçici şifre / bağlantı</small><b id="credentialSecret">-</b></div>
+    <button class="primary full" onclick="copyCredential()">Panoya Kopyala</button>
   </div>
 </div>
 
+<div id="lineModal" class="modal hidden"><div class="modal-card"><div class="toolbar"><h3 id="modalLineTitle">Hat</h3><button onclick="closeLineModal()">Kapat</button></div><div id="lineHistory"></div></div></div>
+<div id="videoModal" class="modal hidden"><div class="modal-card"><div class="toolbar"><h3>Video yükle</h3><button onclick="closeVideoModal()">Kapat</button></div><input id="videoInspectionId" type="hidden"><input id="videoFile" type="file" accept="video/*"><button class="primary" onclick="uploadVideo()">Videoyu Yükle</button><div id="videoMsg" class="form-msg"></div></div></div>
+<div id="revisionModal" class="modal hidden"><div class="modal-card wide"><div class="toolbar"><h3>Rapor & CAD Revizyonları</h3><button onclick="closeRevisionModal()">Kapat</button></div><div id="revisionList"></div></div></div>
+
+<div id="toast" class="toast"></div>
 <script src="/static/app.js"></script>
 </body>
 </html>
