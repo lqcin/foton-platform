@@ -19,6 +19,9 @@ CREATE TABLE IF NOT EXISTS users (
     display_name TEXT NOT NULL,
     customer_id INTEGER,
     is_active INTEGER NOT NULL DEFAULT 1,
+    must_change_password INTEGER NOT NULL DEFAULT 0,
+    password_changed_at TEXT,
+    last_login_at TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(customer_id) REFERENCES customers(id)
 );
@@ -27,7 +30,21 @@ CREATE TABLE IF NOT EXISTS tokens (
     token TEXT PRIMARY KEY,
     user_id INTEGER NOT NULL,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at TEXT,
+    revoked_at TEXT,
     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    token_hash TEXT UNIQUE NOT NULL,
+    user_id INTEGER NOT NULL,
+    expires_at TEXT NOT NULL,
+    used_at TEXT,
+    created_by INTEGER,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY(created_by) REFERENCES users(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS projects (
@@ -156,6 +173,7 @@ CREATE INDEX IF NOT EXISTS idx_lines_project ON lines(project_id);
 CREATE INDEX IF NOT EXISTS idx_inspections_line ON inspections(line_id);
 CREATE INDEX IF NOT EXISTS idx_defects_inspection ON defects(inspection_id);
 CREATE INDEX IF NOT EXISTS idx_project_users_user ON project_users(user_id);
+CREATE INDEX IF NOT EXISTS idx_reset_user ON password_reset_tokens(user_id);
 """
 
 def connect():
@@ -164,6 +182,19 @@ def connect():
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
+def _columns(conn, table: str) -> set[str]:
+    return {r["name"] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+
+def _ensure_column(conn, table: str, name: str, definition: str):
+    if name not in _columns(conn, table):
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {definition}")
+
 def init_db():
     with connect() as conn:
         conn.executescript(SCHEMA)
+        # Eski FOTON veritabanlarını kırmadan yeni kimlik doğrulama alanlarını ekle.
+        _ensure_column(conn, "users", "must_change_password", "INTEGER NOT NULL DEFAULT 0")
+        _ensure_column(conn, "users", "password_changed_at", "TEXT")
+        _ensure_column(conn, "users", "last_login_at", "TEXT")
+        _ensure_column(conn, "tokens", "expires_at", "TEXT")
+        _ensure_column(conn, "tokens", "revoked_at", "TEXT")

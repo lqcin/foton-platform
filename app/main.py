@@ -3,23 +3,51 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import csv, math, uuid
 
 from .db import connect, init_db
-from .security import hash_password, verify_password, new_token
+from .security import (
+    hash_password, verify_password, validate_password, new_token,
+    token_hash, generate_temp_password
+)
 from .services import project_snapshot, project_stats, generate_revisions, log_action
-from .config import VIDEO_DIR, SEED_DEMO, required_env
+from .config import (
+    VIDEO_DIR, SEED_DEMO, required_env, SESSION_HOURS, RESET_TOKEN_MINUTES
+)
 
 BASE = Path(__file__).resolve().parent
 STATIC = BASE / "static"
 
-app = FastAPI(title="FOTON Platform", version="2.0.0")
+app = FastAPI(title="FOTON Platform", version="3.0.0")
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
 class LoginIn(BaseModel):
     email: str
     password: str
+
+class ChangePasswordIn(BaseModel):
+    current_password: str
+    new_password: str
+
+class ResetPasswordIn(BaseModel):
+    token: str
+    new_password: str
+
+class AdminUserIn(BaseModel):
+    email: str
+    display_name: str
+    role: str
+    customer_id: int | None = None
+    project_ids: list[int] = []
+    temporary_password: str | None = None
+
+class UserStatusIn(BaseModel):
+    is_active: bool
+
+class CustomerIn(BaseModel):
+    name: str
+    code: str
 
 class ProjectIn(BaseModel):
     customer_id: int
@@ -40,21 +68,43 @@ class InspectionIn(BaseModel):
     defect_severity: str | None = "MEDIUM"
     defect_description: str | None = None
 
+def utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+def iso(dt: datetime) -> str:
+    return dt.isoformat()
+
 def rowdict(r):
     return dict(r) if r else None
 
 def auth_user(authorization: str | None = Header(None)):
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(401, "Oturum gerekli")
-    token=authorization.split(" ",1)[1]
+    token = authorization.split(" ",1)[1]
     with connect() as conn:
         u=conn.execute("""
             SELECT u.* FROM tokens t JOIN users u ON u.id=t.user_id
             WHERE t.token=? AND u.is_active=1
+              AND t.revoked_at IS NULL
+              AND (t.expires_at IS NULL OR datetime(t.expires_at) > datetime('now'))
         """,(token,)).fetchone()
     if not u:
-        raise HTTPException(401,"Geçersiz oturum")
-    return rowdict(u)
+        raise HTTPException(401,"Geçersiz veya süresi dolmuş oturum")
+    d = rowdict(u)
+    d["_token"] = token
+    return d
+
+def public_user(user: dict) -> dict:
+    return {
+        "id": user["id"],
+        "email": user["email"],
+        "role": user["role"],
+        "display_name": user["display_name"],
+        "customer_id": user.get("customer_id"),
+        "is_active": user.get("is_active", 1),
+        "must_change_password": user.get("must_change_password", 0),
+        "last_login_at": user.get("last_login_at"),
+    }
 
 def can_access_project(project_id:int,user:dict):
     if user["role"]=="admin":
@@ -99,8 +149,10 @@ def seed():
         for email,pwd,role,name,cid in users:
             if not conn.execute("SELECT 1 FROM users WHERE email=?",(email,)).fetchone():
                 conn.execute(
-                    "INSERT INTO users(email,password_hash,role,display_name,customer_id) VALUES(?,?,?,?,?)",
-                    (email,hash_password(pwd),role,name,cid)
+                    """INSERT INTO users(
+                        email,password_hash,role,display_name,customer_id,must_change_password,password_changed_at
+                    ) VALUES(?,?,?,?,?,?,CURRENT_TIMESTAMP)""",
+                    (email,hash_password(pwd),role,name,cid,0)
                 )
 
         if not conn.execute("SELECT 1 FROM projects WHERE code='151_8'").fetchone():
@@ -162,7 +214,7 @@ def startup():
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "foton-platform"}
+    return {"status": "ok", "service": "foton-platform", "version": "3.0.0"}
 
 @app.get("/")
 def home():
@@ -170,17 +222,179 @@ def home():
 
 @app.post("/api/login")
 def login(data:LoginIn):
+    email = data.email.lower().strip()
     with connect() as conn:
-        u=conn.execute("SELECT * FROM users WHERE email=?",(data.email.lower().strip(),)).fetchone()
-        if not u or not verify_password(data.password,u["password_hash"]):
+        u=conn.execute("SELECT * FROM users WHERE email=?",(email,)).fetchone()
+        if not u or not u["is_active"] or not verify_password(data.password,u["password_hash"]):
             raise HTTPException(401,"E-posta veya şifre hatalı")
         token=new_token()
-        conn.execute("INSERT INTO tokens(token,user_id) VALUES(?,?)",(token,u["id"]))
-        return {"token":token,"user":{"id":u["id"],"email":u["email"],"role":u["role"],"display_name":u["display_name"]}}
+        expires_at = iso(utcnow() + timedelta(hours=SESSION_HOURS))
+        conn.execute(
+            "INSERT INTO tokens(token,user_id,expires_at) VALUES(?,?,?)",
+            (token,u["id"],expires_at)
+        )
+        conn.execute("UPDATE users SET last_login_at=CURRENT_TIMESTAMP WHERE id=?",(u["id"],))
+        u = conn.execute("SELECT * FROM users WHERE id=?",(u["id"],)).fetchone()
+        return {"token":token,"expires_at":expires_at,"user":public_user(dict(u))}
+
+@app.post("/api/logout")
+def logout_api(user=Depends(auth_user)):
+    with connect() as conn:
+        conn.execute("UPDATE tokens SET revoked_at=CURRENT_TIMESTAMP WHERE token=?",(user["_token"],))
+    return {"ok": True}
 
 @app.get("/api/me")
 def me(user=Depends(auth_user)):
-    return user
+    return public_user(user)
+
+@app.post("/api/change-password")
+def change_password(data: ChangePasswordIn, user=Depends(auth_user)):
+    ok, message = validate_password(data.new_password)
+    if not ok:
+        raise HTTPException(400, message)
+    with connect() as conn:
+        u = conn.execute("SELECT * FROM users WHERE id=?",(user["id"],)).fetchone()
+        if not u or not verify_password(data.current_password, u["password_hash"]):
+            raise HTTPException(400, "Mevcut şifre hatalı.")
+        if verify_password(data.new_password, u["password_hash"]):
+            raise HTTPException(400, "Yeni şifre mevcut şifreyle aynı olamaz.")
+        conn.execute("""
+            UPDATE users
+            SET password_hash=?, must_change_password=0, password_changed_at=CURRENT_TIMESTAMP
+            WHERE id=?
+        """,(hash_password(data.new_password),user["id"]))
+        # Bu oturum dışındaki token'ları kapat.
+        conn.execute("""
+            UPDATE tokens SET revoked_at=CURRENT_TIMESTAMP
+            WHERE user_id=? AND token<>? AND revoked_at IS NULL
+        """,(user["id"],user["_token"]))
+    return {"ok":True}
+
+@app.post("/api/password-reset/complete")
+def complete_password_reset(data: ResetPasswordIn):
+    ok, message = validate_password(data.new_password)
+    if not ok:
+        raise HTTPException(400, message)
+    th = token_hash(data.token)
+    with connect() as conn:
+        r = conn.execute("""
+            SELECT * FROM password_reset_tokens
+            WHERE token_hash=? AND used_at IS NULL
+              AND datetime(expires_at) > datetime('now')
+        """,(th,)).fetchone()
+        if not r:
+            raise HTTPException(400, "Sıfırlama bağlantısı geçersiz veya süresi dolmuş.")
+        conn.execute("""
+            UPDATE users SET password_hash=?, must_change_password=0,
+                password_changed_at=CURRENT_TIMESTAMP
+            WHERE id=?
+        """,(hash_password(data.new_password),r["user_id"]))
+        conn.execute("UPDATE password_reset_tokens SET used_at=CURRENT_TIMESTAMP WHERE id=?",(r["id"],))
+        conn.execute("UPDATE tokens SET revoked_at=CURRENT_TIMESTAMP WHERE user_id=? AND revoked_at IS NULL",(r["user_id"],))
+    return {"ok":True}
+
+@app.get("/api/admin/users")
+def admin_users(user=Depends(auth_user)):
+    if user["role"]!="admin":
+        raise HTTPException(403)
+    with connect() as conn:
+        rows=conn.execute("""
+            SELECT u.id,u.email,u.display_name,u.role,u.customer_id,u.is_active,
+                   u.must_change_password,u.created_at,u.last_login_at,
+                   c.name customer_name,
+                   COUNT(pu.project_id) project_count
+            FROM users u
+            LEFT JOIN customers c ON c.id=u.customer_id
+            LEFT JOIN project_users pu ON pu.user_id=u.id
+            GROUP BY u.id
+            ORDER BY u.role,u.display_name
+        """).fetchall()
+    return [dict(r) for r in rows]
+
+@app.post("/api/admin/users")
+def create_user(data: AdminUserIn, user=Depends(auth_user)):
+    if user["role"]!="admin":
+        raise HTTPException(403)
+    if data.role not in ("admin","field","customer"):
+        raise HTTPException(400,"Geçersiz rol.")
+    if data.role=="customer" and not data.customer_id:
+        raise HTTPException(400,"Müşteri kullanıcısı için firma seçilmeli.")
+    temp = data.temporary_password or generate_temp_password()
+    ok, message = validate_password(temp)
+    if not ok:
+        raise HTTPException(400,message)
+    email = data.email.lower().strip()
+    with connect() as conn:
+        if conn.execute("SELECT 1 FROM users WHERE email=?",(email,)).fetchone():
+            raise HTTPException(400,"Bu e-posta zaten kayıtlı.")
+        cur = conn.execute("""
+            INSERT INTO users(
+                email,password_hash,role,display_name,customer_id,is_active,
+                must_change_password
+            ) VALUES(?,?,?,?,?,1,1)
+        """,(email,hash_password(temp),data.role,data.display_name.strip(),data.customer_id))
+        uid = cur.lastrowid
+        project_ids = list(data.project_ids)
+        if data.role=="customer" and data.customer_id and not project_ids:
+            project_ids=[r["id"] for r in conn.execute(
+                "SELECT id FROM projects WHERE customer_id=?",(data.customer_id,)
+            ).fetchall()]
+        if data.role=="field" and not project_ids:
+            project_ids=[r["id"] for r in conn.execute(
+                "SELECT id FROM projects WHERE status='ACTIVE'"
+            ).fetchall()]
+        for pid in project_ids:
+            conn.execute("INSERT OR IGNORE INTO project_users(project_id,user_id) VALUES(?,?)",(pid,uid))
+    return {"id":uid,"temporary_password":temp,"must_change_password":True}
+
+@app.patch("/api/admin/users/{user_id}/status")
+def set_user_status(user_id:int, data:UserStatusIn, user=Depends(auth_user)):
+    if user["role"]!="admin":
+        raise HTTPException(403)
+    if user_id==user["id"] and not data.is_active:
+        raise HTTPException(400,"Kendi yönetici hesabınızı pasifleştiremezsiniz.")
+    with connect() as conn:
+        target=conn.execute("SELECT * FROM users WHERE id=?",(user_id,)).fetchone()
+        if not target:
+            raise HTTPException(404,"Kullanıcı bulunamadı.")
+        conn.execute("UPDATE users SET is_active=? WHERE id=?",(1 if data.is_active else 0,user_id))
+        if not data.is_active:
+            conn.execute("UPDATE tokens SET revoked_at=CURRENT_TIMESTAMP WHERE user_id=? AND revoked_at IS NULL",(user_id,))
+    return {"ok":True}
+
+@app.post("/api/admin/users/{user_id}/reset-link")
+def issue_reset_link(user_id:int, user=Depends(auth_user)):
+    if user["role"]!="admin":
+        raise HTTPException(403)
+    raw = new_token()
+    expires = iso(utcnow()+timedelta(minutes=RESET_TOKEN_MINUTES))
+    with connect() as conn:
+        target=conn.execute("SELECT id,email FROM users WHERE id=?",(user_id,)).fetchone()
+        if not target:
+            raise HTTPException(404,"Kullanıcı bulunamadı.")
+        conn.execute(
+            "UPDATE password_reset_tokens SET used_at=CURRENT_TIMESTAMP WHERE user_id=? AND used_at IS NULL",
+            (user_id,)
+        )
+        conn.execute("""
+            INSERT INTO password_reset_tokens(token_hash,user_id,expires_at,created_by)
+            VALUES(?,?,?,?)
+        """,(token_hash(raw),user_id,expires,user["id"]))
+    return {"token":raw,"expires_at":expires,"email":target["email"]}
+
+@app.post("/api/admin/customers")
+def create_customer(data:CustomerIn,user=Depends(auth_user)):
+    if user["role"]!="admin":
+        raise HTTPException(403)
+    code=data.code.strip().upper()
+    if not code or not data.name.strip():
+        raise HTTPException(400,"Firma adı ve kod gerekli.")
+    with connect() as conn:
+        try:
+            cur=conn.execute("INSERT INTO customers(name,code) VALUES(?,?)",(data.name.strip(),code))
+        except Exception:
+            raise HTTPException(400,"Firma kodu zaten kullanılıyor olabilir.")
+    return {"id":cur.lastrowid}
 
 @app.get("/api/customers")
 def customers(user=Depends(auth_user)):
