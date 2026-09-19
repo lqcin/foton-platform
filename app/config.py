@@ -21,6 +21,8 @@ def env_bool(name: str, default: bool = False) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 SEED_DEMO = env_bool("FOTON_SEED_DEMO", False)
+SESSION_HOURS = int(os.getenv("FOTON_SESSION_HOURS", "12"))
+RESET_TOKEN_MINUTES = int(os.getenv("FOTON_RESET_TOKEN_MINUTES", "30"))
 
 def required_env(name: str) -> str:
     value = os.getenv(name)
