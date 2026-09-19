@@ -85,3 +85,23 @@ line_code,start_node,end_node,x1,y1,x2,y2,line_type,diameter_mm
 ## Şu anki teknik durum
 
 MVP SQLite kullanır. Canlı ortam aşamasında PostgreSQL/PostGIS, obje depolama (S3/R2), reverse proxy/HTTPS ve gerçek DWG dönüşüm servisine geçilmesi planlanmaktadır.
+
+
+## v3 - Müşteri portalı ve şifre yönetimi
+
+Bu sürümde:
+
+- süreli oturum tokenları,
+- çıkışta token iptali,
+- ilk girişte zorunlu şifre değiştirme,
+- yönetici tarafından müşteri/saha/yönetici hesabı açma,
+- geçici şifre üretme,
+- tek kullanımlık süreli şifre sıfırlama bağlantısı,
+- kullanıcı aktifleştirme/pasifleştirme,
+- pasifleştirmede tüm açık oturumların iptali,
+- müşteri odaklı yeni portal arayüzü,
+- profil içinden şifre değiştirme
+
+eklenmiştir.
+
+Not: "Şifremi unuttum" e-postasının otomatik gönderimi için canlı sunucuda SMTP/e-posta servisi bağlanmalıdır. Şimdilik yönetici paneli tek kullanımlık sıfırlama bağlantısını üretir.
